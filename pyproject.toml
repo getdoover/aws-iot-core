@@ -1,0 +1,28 @@
+[project]
+name = "aws-iot-connector"
+version = "0.1.0"
+description = "Doover integration for devices connected via AWS IoT Core"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydoover==1.0.0a7",
+    "requests>=2.32.0",
+]
+
+[project.scripts]
+export-config-integration = "integration.app_config:export"
+export-config-processor = "processor.app_config:export"
+export-ui-processor = "processor.app_ui:export"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/integration", "src/processor"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+]

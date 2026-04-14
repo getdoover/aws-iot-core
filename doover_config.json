@@ -1,0 +1,937 @@
+{
+    "tts_integration": {
+        "name": "tts_integration",
+        "display_name": "TTS LoRaWAN Integration",
+        "type": "INT",
+        "visibility": "PUB",
+        "allow_many": false,
+        "description": "Receives webhook payloads from The Things Stack and routes uplinks to LoRaWAN device agents",
+        "long_description": "README.md",
+        "depends_on": [],
+        "export_config_command": "export-config-integration",
+        "export_ui_command": "NO_EXPORT",
+        "lambda_config": {
+            "Environment": {},
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "Handler": "src.integration.handler",
+            "MemorySize": 128,
+            "Architectures": [
+                "arm64"
+            ]
+        },
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "$default",
+            "type": "object",
+            "properties": {
+                "dv_proc_extended_permissions": {
+                    "title": "Devices",
+                    "x-name": "dv_proc_extended_permissions",
+                    "x-hidden": false,
+                    "type": "object",
+                    "x-required": true,
+                    "description": "Give Permission to access devices.",
+                    "x-position": 0,
+                    "properties": {
+                        "devices": {
+                            "title": "Devices",
+                            "x-name": "devices",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "List of devices to grant extended permissions to.",
+                            "x-position": 1,
+                            "items": {
+                                "title": "Device",
+                                "x-name": "device",
+                                "x-hidden": false,
+                                "format": "doover-resource-device",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Device ID",
+                                "pattern": "\\d+"
+                            }
+                        },
+                        "groups": {
+                            "title": "Groups",
+                            "x-name": "groups",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "List of groups to grant permissions to.",
+                            "x-position": 2,
+                            "items": {
+                                "title": "Group",
+                                "x-name": "group",
+                                "x-hidden": false,
+                                "format": "doover-resource-group",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Group ID",
+                                "pattern": "\\d+"
+                            }
+                        },
+                        "apps_installed": {
+                            "title": "Apps Installed",
+                            "x-name": "apps_installed",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "Permission will be given to any devices which have any of the apps listed installed.",
+                            "x-position": 3,
+                            "items": {
+                                "title": "Application",
+                                "x-name": "application",
+                                "x-hidden": false,
+                                "format": "doover-resource-application",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Application"
+                            }
+                        },
+                        "all_devices": {
+                            "title": "All Devices",
+                            "x-name": "all_devices",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Permission will be given for all devices in this organisation. This is a very far-reaching permission to grant!",
+                            "default": false,
+                            "x-position": 4
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "devices",
+                        "groups",
+                        "apps_installed"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
+                },
+                "tts_api_key": {
+                    "title": "TTS API Key",
+                    "x-name": "tts_api_key",
+                    "x-hidden": false,
+                    "type": "string",
+                    "x-required": true,
+                    "description": "Bearer token for The Things Stack API",
+                    "x-position": 1
+                },
+                "tts_application_name": {
+                    "title": "TTS Application Name",
+                    "x-name": "tts_application_name",
+                    "x-hidden": false,
+                    "type": "string",
+                    "x-required": true,
+                    "description": "Application ID in The Things Stack console",
+                    "x-position": 2
+                },
+                "tts_server_host": {
+                    "title": "TTS Server Host",
+                    "x-name": "tts_server_host",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "TTS cluster hostname (e.g. au1.cloud.thethings.network)",
+                    "default": "au1.cloud.thethings.network",
+                    "x-position": 3
+                },
+                "tts_identity_server_host": {
+                    "title": "TTS Identity Server Host",
+                    "x-name": "tts_identity_server_host",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Identity server hostname, if different from the cluster host (e.g. eu1.cloud.thethings.network)",
+                    "default": "eu1.cloud.thethings.network",
+                    "x-position": 4
+                },
+                "dv_proc_ingestion": {
+                    "title": "Ingestion Endpoint",
+                    "x-name": "dv_proc_ingestion",
+                    "x-hidden": false,
+                    "type": "object",
+                    "x-required": true,
+                    "description": "Ingestion Endpoint configuration",
+                    "x-position": 5,
+                    "properties": {
+                        "cidr_ranges": {
+                            "title": "CIDR Ranges",
+                            "x-name": "cidr_ranges",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "Accepted CIDR ranges for incoming requests",
+                            "x-position": 1,
+                            "items": {
+                                "title": "IP Range",
+                                "x-name": "ip_range",
+                                "x-hidden": false,
+                                "type": "string",
+                                "x-required": true,
+                                "description": "IP Range, e.g. 1.234.56.78/24 or 110.220.120.1/32"
+                            }
+                        },
+                        "signing_key": {
+                            "title": "Signing Key",
+                            "x-name": "signing_key",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Private SHA256 signing key for the request. While not recommended, this may be `None` if no signed hash verification is required.",
+                            "default": "",
+                            "x-position": 2
+                        },
+                        "sha256_hash_header": {
+                            "title": "SHA256 Hash Header",
+                            "x-name": "sha256_hash_header",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Header key for the hash of the signed payload (defaults to x-hmac-sha256 if signing_key is present)",
+                            "default": "x-hmac-sha256",
+                            "x-position": 3
+                        },
+                        "throttle": {
+                            "title": "Throttle",
+                            "x-name": "throttle",
+                            "x-hidden": false,
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "The number of requests to allow per second. Due to internal limits, this cannot exceed 30.",
+                            "default": 10,
+                            "x-position": 4,
+                            "maximum": 30
+                        },
+                        "never_replace_token": {
+                            "title": "Never Replace Token",
+                            "x-name": "never_replace_token",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Enable this if the token is difficult to change and must never change. This is not recommended from a security standpoint, however may be necessary in some situations.If this option is disabled and then enabled, a new token will be generated at that point.",
+                            "default": false,
+                            "x-position": 5
+                        },
+                        "mini_token": {
+                            "title": "Mini Token",
+                            "x-name": "mini_token",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Enable this to generate a mini token for use with the ingestion endpoint. Mini tokens are ~70 bytes, compared with the ~900 bytes of a regular token. Generally, this is not advised as it adds complexity and latency to ingestion calls, however may be desirable in especially low-bandwidth and embedded environments. There is no security difference in the two tokens.",
+                            "default": false,
+                            "x-position": 6
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "cidr_ranges"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
+                }
+            },
+            "additionalElements": true,
+            "required": [
+                "dv_proc_extended_permissions",
+                "tts_api_key",
+                "tts_application_name",
+                "dv_proc_ingestion"
+            ]
+        },
+        "organisation_id": null,
+        "code_repo_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "banner_url": null,
+        "run_command": null,
+        "lambda_arn": null,
+        "container_registry_profile_id": null,
+        "id": 168229358098492674,
+        "key": null,
+        "owner_org_id": null,
+        "build_args": null,
+        "ui_schema": {},
+        "icon_url": null,
+        "staging_config": {
+            "lambda_config": {
+                "Environment": {
+                    "Variables": {
+                        "DOOVER_DATA_ENDPOINT": "https://data.staging.udoover.com/api"
+                    }
+                },
+                "Runtime": "python3.13",
+                "Timeout": 60,
+                "Handler": "src.integration.handler",
+                "MemorySize": 128,
+                "Architectures": [
+                    "arm64"
+                ]
+            },
+            "id": 168247722145489923
+        },
+        "build_widget_command": null
+    },
+    "tts_processor": {
+        "name": "tts_processor",
+        "display_name": "TTS LoRaWAN Device",
+        "type": "PRO",
+        "visibility": "PUB",
+        "allow_many": false,
+        "description": "Processor for LoRaWAN devices providing radio telemetry UI and uplink handling",
+        "long_description": "README.md",
+        "depends_on": [],
+        "export_config_command": "export-config-processor",
+        "export_ui_command": "export-ui-processor",
+        "lambda_config": {
+            "Environment": {},
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "Handler": "src.processor.handler",
+            "MemorySize": 128,
+            "Architectures": [
+                "arm64"
+            ]
+        },
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "$default",
+            "type": "object",
+            "properties": {
+                "dv_proc_subscriptions": {
+                    "title": "Subscription",
+                    "x-name": "dv_proc_subscriptions",
+                    "x-hidden": true,
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "A list of channels to subscribe to.",
+                    "default": [
+                        "on_tts_event"
+                    ],
+                    "x-position": 0,
+                    "items": {
+                        "title": "Channel Subscription",
+                        "x-name": "dv_proc_subscription",
+                        "x-hidden": false,
+                        "type": "string",
+                        "x-required": true,
+                        "description": "The name of the channel to subscribe to"
+                    }
+                },
+                "dv-app-position": {
+                    "title": "Position",
+                    "x-name": "dv-app-position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 100,
+                    "x-position": 1,
+                    "minimum": 0
+                },
+                "hide_default_ui": {
+                    "title": "Hide Default UI",
+                    "x-name": "hide_default_ui",
+                    "x-hidden": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Whether to hide the default UI. Useful if you have a custom UI application.",
+                    "default": false,
+                    "x-position": 2
+                }
+            },
+            "additionalElements": true,
+            "required": []
+        },
+        "organisation_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "banner_url": null,
+        "run_command": null,
+        "lambda_arn": null,
+        "ui_schema": {
+            "displayString": "$config.app().APP_DISPLAY_NAME",
+            "hidden": "$config.app().hide_ui:boolean:false",
+            "position": "$config.app().position:number:50",
+            "icon": null,
+            "colour": null,
+            "defaultOpen": false,
+            "type": "uiApplication",
+            "name": "$config.app().APP_KEY",
+            "children": {
+                "rssi": {
+                    "name": "rssi",
+                    "type": "uiVariable",
+                    "displayString": "RSSI",
+                    "showActivity": true,
+                    "position": 51,
+                    "hidden": false,
+                    "units": "dBm",
+                    "varType": "float",
+                    "currentValue": "$tag.app().rssi:number:null",
+                    "decPrecision": 0,
+                    "ranges": [
+                        {
+                            "min": -130,
+                            "max": -100,
+                            "colour": "red",
+                            "show_on_graph": true,
+                            "label": "Weak"
+                        },
+                        {
+                            "min": -100,
+                            "max": -80,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "Fair"
+                        },
+                        {
+                            "min": -80,
+                            "max": -50,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Good"
+                        },
+                        {
+                            "min": -50,
+                            "max": 0,
+                            "colour": "blue",
+                            "show_on_graph": true,
+                            "label": "Strong"
+                        }
+                    ]
+                },
+                "snr": {
+                    "name": "snr",
+                    "type": "uiVariable",
+                    "displayString": "SNR",
+                    "showActivity": true,
+                    "position": 52,
+                    "hidden": false,
+                    "units": "dB",
+                    "varType": "float",
+                    "currentValue": "$tag.app().snr:number:null",
+                    "decPrecision": 1,
+                    "ranges": [
+                        {
+                            "min": -20,
+                            "max": -5,
+                            "colour": "red",
+                            "show_on_graph": true,
+                            "label": "Poor"
+                        },
+                        {
+                            "min": -5,
+                            "max": 5,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "Fair"
+                        },
+                        {
+                            "min": 5,
+                            "max": 15,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Good"
+                        }
+                    ]
+                },
+                "frame_counter": {
+                    "name": "frame_counter",
+                    "type": "uiVariable",
+                    "displayString": "Frame Counter",
+                    "showActivity": true,
+                    "position": 53,
+                    "hidden": false,
+                    "varType": "float",
+                    "currentValue": "$tag.app().frame_counter:number:null",
+                    "decPrecision": 0
+                },
+                "frequency": {
+                    "name": "frequency",
+                    "type": "uiVariable",
+                    "displayString": "Frequency",
+                    "showActivity": true,
+                    "position": 54,
+                    "hidden": false,
+                    "varType": "string",
+                    "currentValue": "$tag.app().frequency:string:null"
+                },
+                "data_rate": {
+                    "name": "data_rate",
+                    "type": "uiVariable",
+                    "displayString": "Data Rate",
+                    "showActivity": true,
+                    "position": 55,
+                    "hidden": false,
+                    "varType": "string",
+                    "currentValue": "$tag.app().data_rate:string:null"
+                },
+                "gateway": {
+                    "name": "gateway",
+                    "type": "uiVariable",
+                    "displayString": "Gateway",
+                    "showActivity": true,
+                    "position": 56,
+                    "hidden": false,
+                    "varType": "string",
+                    "currentValue": "$tag.app().gateway:string:null"
+                }
+            }
+        },
+        "id": 168230106970500360,
+        "key": null,
+        "owner_org_id": null,
+        "code_repo_id": null,
+        "build_args": null,
+        "icon_url": null,
+        "staging_config": {
+            "lambda_config": {
+                "Environment": {
+                    "Variables": {
+                        "DOOVER_DATA_ENDPOINT": "https://data.staging.udoover.com/api"
+                    }
+                },
+                "Runtime": "python3.13",
+                "Timeout": 60,
+                "Handler": "src.processor.handler",
+                "MemorySize": 128,
+                "Architectures": [
+                    "arm64"
+                ]
+            },
+            "id": 168247789111747585
+        },
+        "build_widget_command": null
+    },
+    "rak4631_processor": {
+        "name": "rak4631_processor",
+        "display_name": "RAK4631 LoRaWAN",
+        "type": "PRO",
+        "visibility": "PUB",
+        "allow_many": false,
+        "description": "Processor for RAK4631 LoRaWAN devices",
+        "long_description": "README.md",
+        "depends_on": [],
+        "export_config_command": "export-config-rak4631",
+        "export_ui_command": "export-ui-rak4631",
+        "lambda_config": {
+            "Environment": {},
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "Handler": "src.rak4631.handler",
+            "MemorySize": 128,
+            "Architectures": [
+                "arm64"
+            ]
+        },
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "$default",
+            "type": "object",
+            "properties": {
+                "dv_proc_subscriptions": {
+                    "title": "Subscription",
+                    "x-name": "dv_proc_subscriptions",
+                    "x-hidden": true,
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "A list of channels to subscribe to.",
+                    "default": [
+                        "on_tts_event"
+                    ],
+                    "x-position": 0,
+                    "items": {
+                        "title": "Channel Subscription",
+                        "x-name": "dv_proc_subscription",
+                        "x-hidden": false,
+                        "type": "string",
+                        "x-required": true,
+                        "description": "The name of the channel to subscribe to"
+                    }
+                },
+                "dv-app-position": {
+                    "title": "Position",
+                    "x-name": "dv-app-position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 100,
+                    "x-position": 1,
+                    "minimum": 0
+                },
+                "litres_per_count": {
+                    "title": "Litres per Count",
+                    "x-name": "litres_per_count",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How many litres each pulse from the flow meter represents.",
+                    "default": 10.0,
+                    "x-position": 2
+                },
+                "hide_default_ui": {
+                    "title": "Hide Default UI",
+                    "x-name": "hide_default_ui",
+                    "x-hidden": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Whether to hide the default UI. Useful if you have a custom UI application.",
+                    "default": false,
+                    "x-position": 3
+                }
+            },
+            "additionalElements": true,
+            "required": []
+        },
+        "organisation_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "banner_url": null,
+        "run_command": null,
+        "lambda_arn": null,
+        "ui_schema": {
+            "displayString": "$config.app().APP_DISPLAY_NAME",
+            "hidden": "$config.app().hide_ui:boolean:false",
+            "position": "$config.app().position:number:50",
+            "icon": null,
+            "colour": null,
+            "defaultOpen": false,
+            "type": "uiApplication",
+            "name": "$config.app().APP_KEY",
+            "children": {
+                "level_": {
+                    "name": "level_",
+                    "type": "uiVariable",
+                    "displayString": "Level (%)",
+                    "showActivity": true,
+                    "form": "radialGauge",
+                    "position": 51,
+                    "hidden": false,
+                    "varType": "float",
+                    "currentValue": "$tag.app().level_pct:number:null",
+                    "decPrecision": 1,
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 20,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "Low"
+                        },
+                        {
+                            "min": 20,
+                            "max": 70,
+                            "colour": "blue",
+                            "show_on_graph": true,
+                            "label": "Half"
+                        },
+                        {
+                            "min": 70,
+                            "max": 100,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Full"
+                        }
+                    ]
+                },
+                "current_flow_rate_lmin": {
+                    "name": "current_flow_rate_lmin",
+                    "type": "uiVariable",
+                    "displayString": "Current Flow Rate (L/min)",
+                    "showActivity": true,
+                    "position": 52,
+                    "hidden": false,
+                    "varType": "float",
+                    "currentValue": "$tag.app().flow_rate_lpm:number:null",
+                    "decPrecision": 1
+                },
+                "level_low": {
+                    "name": "level_low",
+                    "type": "uiWarningIndicator",
+                    "displayString": "Level Low",
+                    "position": 53,
+                    "hidden": "!$tag.app().level_low_warning",
+                    "currentValue": "$cmds.app().level_low",
+                    "can_cancel": true
+                },
+                "battery_low": {
+                    "name": "battery_low",
+                    "type": "uiWarningIndicator",
+                    "displayString": "Battery Low",
+                    "position": 54,
+                    "hidden": "!$tag.app().batt_low_warning",
+                    "currentValue": "$cmds.app().battery_low",
+                    "can_cancel": true
+                },
+                "highrate_burst_active": {
+                    "name": "highrate_burst_active",
+                    "type": "uiWarningIndicator",
+                    "displayString": "High-Rate Burst Active",
+                    "position": 55,
+                    "hidden": "!$tag.app().high_rate_warning",
+                    "currentValue": "$cmds.app().highrate_burst_active",
+                    "can_cancel": true
+                },
+                "details": {
+                    "name": "details",
+                    "type": "uiSubmodule",
+                    "displayString": "Details",
+                    "showActivity": true,
+                    "position": 69,
+                    "hidden": false,
+                    "children": {
+                        "tank_type": {
+                            "name": "tank_type",
+                            "type": "uiSelect",
+                            "displayString": "Tank Type",
+                            "position": 56,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().tank_type",
+                            "options": {
+                                "flat_bottom": {
+                                    "name": "flat_bottom",
+                                    "displayString": "Flat Bottom",
+                                    "type": "uiElement"
+                                },
+                                "horizontal_cylinder": {
+                                    "name": "horizontal_cylinder",
+                                    "displayString": "Horizontal Cylinder",
+                                    "type": "uiElement"
+                                }
+                            }
+                        },
+                        "input_max": {
+                            "name": "input_max",
+                            "type": "uiFloatInput",
+                            "displayString": "Max Level (cm)",
+                            "position": 57,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().input_max",
+                            "min": 0,
+                            "max": 999
+                        },
+                        "input_low_level": {
+                            "name": "input_low_level",
+                            "type": "uiFloatInput",
+                            "displayString": "Low level alarm (%)",
+                            "position": 58,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().input_low_level",
+                            "min": 0,
+                            "max": 99
+                        },
+                        "input_zero_cal": {
+                            "name": "input_zero_cal",
+                            "type": "uiFloatInput",
+                            "displayString": "Zero Calibration (cm)",
+                            "position": 59,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().input_zero_cal",
+                            "min": -999,
+                            "max": 999
+                        },
+                        "input_scaling_cal": {
+                            "name": "input_scaling_cal",
+                            "type": "uiFloatInput",
+                            "displayString": "Scaling Calibration (x multiply)",
+                            "position": 60,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().input_scaling_cal",
+                            "min": -999,
+                            "max": 999
+                        },
+                        "batt_alarm_level": {
+                            "name": "batt_alarm_level",
+                            "type": "uiFloatInput",
+                            "displayString": "Battery Alarm (%)",
+                            "position": 61,
+                            "hidden": false,
+                            "currentValue": "$cmds.app().batt_alarm_level",
+                            "min": 0,
+                            "max": 100
+                        },
+                        "battery_": {
+                            "name": "battery_",
+                            "type": "uiVariable",
+                            "displayString": "Battery (%)",
+                            "showActivity": true,
+                            "position": 62,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().battery_pct:number:null",
+                            "decPrecision": 0,
+                            "ranges": [
+                                {
+                                    "min": 0,
+                                    "max": 30,
+                                    "colour": "yellow",
+                                    "show_on_graph": true,
+                                    "label": "Low"
+                                },
+                                {
+                                    "min": 30,
+                                    "max": 80,
+                                    "colour": "blue",
+                                    "show_on_graph": true,
+                                    "label": "Half"
+                                },
+                                {
+                                    "min": 80,
+                                    "max": 100,
+                                    "colour": "green",
+                                    "show_on_graph": true,
+                                    "label": "Full"
+                                }
+                            ]
+                        },
+                        "total_litres": {
+                            "name": "total_litres",
+                            "type": "uiVariable",
+                            "displayString": "Total Litres (L)",
+                            "showActivity": true,
+                            "position": 63,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().total_litres:number:null",
+                            "decPrecision": 1
+                        },
+                        "raw_current_ma": {
+                            "name": "raw_current_ma",
+                            "type": "uiVariable",
+                            "displayString": "Raw Level Reading (mA)",
+                            "showActivity": true,
+                            "position": 64,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().raw_current_ma:number:null",
+                            "decPrecision": 2
+                        },
+                        "raw_current_cm": {
+                            "name": "raw_current_cm",
+                            "type": "uiVariable",
+                            "displayString": "Raw Level Reading (cm)",
+                            "showActivity": true,
+                            "position": 65,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().raw_current_cm:number:null",
+                            "decPrecision": 1
+                        },
+                        "count_reading": {
+                            "name": "count_reading",
+                            "type": "uiVariable",
+                            "displayString": "Last Raw Count",
+                            "showActivity": true,
+                            "position": 66,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().count_reading:number:null",
+                            "decPrecision": 0
+                        },
+                        "total_count": {
+                            "name": "total_count",
+                            "type": "uiVariable",
+                            "displayString": "Raw Count Total",
+                            "showActivity": true,
+                            "position": 67,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().total_count:number:null",
+                            "decPrecision": 0
+                        },
+                        "raw_battery_v": {
+                            "name": "raw_battery_v",
+                            "type": "uiVariable",
+                            "displayString": "Battery (V)",
+                            "showActivity": true,
+                            "position": 68,
+                            "hidden": false,
+                            "varType": "float",
+                            "currentValue": "$tag.app().raw_battery_v:number:null",
+                            "decPrecision": 2
+                        }
+                    },
+                    "defaultOpen": true
+                }
+            }
+        },
+        "key": null,
+        "owner_org_id": null,
+        "code_repo_id": null,
+        "build_args": null,
+        "icon_url": null,
+        "staging_config": {
+            "lambda_config": {
+                "Environment": {
+                    "Variables": {
+                        "DOOVER_DATA_ENDPOINT": "https://data.staging.udoover.com/api"
+                    }
+                },
+                "Runtime": "python3.13",
+                "Timeout": 60,
+                "Handler": "src.rak4631.handler",
+                "MemorySize": 128,
+                "Architectures": [
+                    "arm64"
+                ]
+            }
+        },
+        "build_widget_command": null,
+        "id": 169346688421481473
+    }
+}
