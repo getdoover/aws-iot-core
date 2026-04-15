@@ -69,6 +69,7 @@ class AwsIotIntegration(Application):
 
         thing_name = segments[2]
         log.info("AWS IoT uplink: thing=%s topic=%s", thing_name, topic)
+        log.info(f"Token: {self.api.token}")
 
         agent_id = self._lookup_agent(thing_name)
 

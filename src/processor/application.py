@@ -37,10 +37,8 @@ class AwsIotProcessor(Application):
         now = datetime.now(timezone.utc)
         await self.tags.last_uplink_at.set(int(now.timestamp() * 1000))
         await self.tags.last_uplink_channel.set(channel)
-
-        current = await self.tags.uplink_count.value
-        await self.tags.uplink_count.set(current + 1)
-        await self.ping_connection(online_at=now)
+        await self.tags.uplink_count.set(self.tags.uplink_count.value + 1)
+        # await self.ping_connection(online_at=now)
 
     async def send_downlink(self, channel: str, payload) -> None:
         """
