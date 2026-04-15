@@ -35,18 +35,12 @@ class AwsIotProcessor(Application):
         log.info("AWS IoT uplink on %s: %s", channel, data)
 
         now = datetime.now(timezone.utc)
-        await self.tags.last_uplink_at.set(now.isoformat())
+        await self.tags.last_uplink_at.set(int(now.timestamp() * 1000))
         await self.tags.last_uplink_channel.set(channel)
-        await self.tags.last_payload.set(data)
 
-        current = await self.tags.uplink_count.get() or 0
+        current = await self.tags.uplink_count.value
         await self.tags.uplink_count.set(current + 1)
-
-        await self.ping_connection(
-            online_at=now,
-            connection_status=ConnectionStatus.periodic_unknown,
-            offline_at=now + timedelta(hours=1),
-        )
+        await self.ping_connection(online_at=now)
 
     async def send_downlink(self, channel: str, payload) -> None:
         """

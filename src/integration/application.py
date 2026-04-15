@@ -1,9 +1,11 @@
 import json
 import logging
 import os
-import tempfile
+import ssl
+from dataclasses import dataclass
+from typing import Any
 
-import requests
+import httpx
 from pydoover.processor import Application
 from pydoover.models import IngestionEndpointEvent, MessageCreateEvent
 
@@ -15,16 +17,29 @@ log = logging.getLogger(__name__)
 # Messages on this channel (on the integration's own agent) trigger a
 # publish to aws/things/{thing}/{channel} via the per-org publish cert.
 DOWNLINK_REQUEST_CHANNEL = "aws_iot_downlink_request"
+UPLINK_CHANNEL = "on_aws_iot_event"
+
+
+@dataclass(frozen=True, slots=True)
+class DownlinkRequest:
+    thing_name: str
+    channel: str
+    payload: Any
+
+    @classmethod
+    def from_message(cls, data: dict) -> "DownlinkRequest":
+        return cls(
+            thing_name=data["thing_name"],
+            channel=data["channel"],
+            payload=data.get("payload"),
+        )
 
 
 class AwsIotIntegration(Application):
     config: AwsIotIntegrationConfig
     config_cls = AwsIotIntegrationConfig
 
-    _cert_paths: tuple[str, str] | None = None
-
-    async def setup(self):
-        log.info("AWS IoT Core integration initialized")
+    _ssl_context: ssl.SSLContext | None = None
 
     # -- Uplink path ---------------------------------------------------------
 
@@ -32,39 +47,29 @@ class AwsIotIntegration(Application):
         """
         Handle an AWS IoT topic rule HTTPS forward.
 
-        The rule is:
-            SELECT *, topic() as topic FROM '$aws/things/+/doover_channel/#'
-
-        so `payload` is the message body plus a `topic` field we use to
-        recover the Thing name (segment 3) and the channel name (segments
-        after 'doover_channel').
+        The rule's `SELECT *, topic() as topic` adds a `topic` field we use
+        to recover the Thing name. Uplinks are forwarded to the
+        `on_aws_iot_event` channel on the matching agent; the processor
+        decides what to do with them.
         """
         payload = event.payload
         if payload is None:
             log.warning("Received empty AWS IoT payload")
             return
 
-        topic = None
-        if isinstance(payload, dict):
-            topic = payload.get("topic")
+        topic = payload.get("topic") if isinstance(payload, dict) else None
         if not topic:
             log.warning("No topic in AWS IoT payload — rule must include topic() as topic")
             return
 
         segments = topic.split("/")
-        # Expected: ['$aws', 'things', '<thing>', 'doover_channel', '<channel>', ...]
-        if len(segments) < 5 or segments[1] != "things" or segments[3] != "doover_channel":
+        if len(segments) < 4 or segments[1] != "things":
             log.warning("Unexpected topic shape: %s", topic)
             return
 
         thing_name = segments[2]
-        channel_name = "/".join(segments[4:])
+        log.info("AWS IoT uplink: thing=%s topic=%s", thing_name, topic)
 
-        log.info("AWS IoT uplink: thing=%s channel=%s", thing_name, channel_name)
-
-        # Look up the Doover agent for this Thing via the serial_number_lookup
-        # tag (populated by processor apps whose serial_number matches the
-        # thing name).
         agent_id = self._lookup_agent(thing_name)
 
         # Record the raw event on the integration's own agent for audit.
@@ -74,10 +79,7 @@ class AwsIotIntegration(Application):
             log.info("No agent mapped to thing %s — event stored only", thing_name)
             return
 
-        # Forward the decoded payload body to the device agent on the matching
-        # channel name. Strip the topic-echo field we added in the rule SQL.
-        body = {k: v for k, v in payload.items() if k != "topic"} if isinstance(payload, dict) else payload
-        await self.api.create_message(channel_name, body, agent_id=agent_id)
+        await self.api.create_message(UPLINK_CHANNEL, payload, agent_id=agent_id)
 
     # -- Downlink path -------------------------------------------------------
 
@@ -92,19 +94,7 @@ class AwsIotIntegration(Application):
         if event.channel.name != DOWNLINK_REQUEST_CHANNEL:
             return
 
-        data = event.message.data
-        if not isinstance(data, dict):
-            log.warning("Downlink request payload must be a dict, got %r", type(data))
-            return
-
-        thing_name = data.get("thing_name")
-        channel = data.get("channel")
-        body = data.get("payload")
-        if not thing_name or not channel:
-            log.warning("Downlink request missing thing_name/channel: %s", data)
-            return
-
-        self._publish_downlink(thing_name, channel, body)
+        await self._publish_downlink(DownlinkRequest.from_message(event.message.data))
 
     # -- Helpers -------------------------------------------------------------
 
@@ -112,7 +102,7 @@ class AwsIotIntegration(Application):
         try:
             mapping = self.tag_manager.get_tag(
                 "serial_number_lookup",
-                app_key="aws_iot_processor_1",
+                app_key="aws_iot_core_processor_1",
                 raise_key_error=True,
             )
         except KeyError:
@@ -120,10 +110,14 @@ class AwsIotIntegration(Application):
             return None
         return mapping.get(thing_name)
 
-    def _ensure_cert_files(self) -> tuple[str, str] | None:
-        """Write the publish cert + key to /tmp on first use; cache paths."""
-        if self._cert_paths is not None:
-            return self._cert_paths
+    def _ensure_ssl_context(self) -> ssl.SSLContext | None:
+        """Build an SSL context with the publish cert loaded from memory.
+
+        Uses memfd_create + /proc/self/fd/N so the PEM material never touches
+        the filesystem. Linux-only, which is fine for the Lambda runtime.
+        """
+        if self._ssl_context is not None:
+            return self._ssl_context
 
         cert_pem = self.config.publish_certificate_pem.value
         priv_key = self.config.publish_private_key.value
@@ -135,31 +129,37 @@ class AwsIotIntegration(Application):
             )
             return None
 
-        tmpdir = tempfile.gettempdir()
-        cert_path = os.path.join(tmpdir, "aws_iot_publish.crt")
-        key_path = os.path.join(tmpdir, "aws_iot_publish.key")
-        with open(cert_path, "w") as f:
-            f.write(cert_pem)
-        with open(key_path, "w") as f:
-            f.write(priv_key)
-        os.chmod(key_path, 0o600)
+        cert_fd = os.memfd_create("aws_iot_cert")
+        key_fd = os.memfd_create("aws_iot_key")
+        try:
+            os.write(cert_fd, cert_pem.encode())
+            os.write(key_fd, priv_key.encode())
+            ctx = ssl.create_default_context()
+            ctx.load_cert_chain(
+                certfile=f"/proc/self/fd/{cert_fd}",
+                keyfile=f"/proc/self/fd/{key_fd}",
+            )
+        finally:
+            os.close(cert_fd)
+            os.close(key_fd)
 
-        self._cert_paths = (cert_path, key_path)
-        return self._cert_paths
+        self._ssl_context = ctx
+        return ctx
 
-    def _publish_downlink(self, thing_name: str, channel: str, body) -> None:
+    async def _publish_downlink(self, request: DownlinkRequest) -> None:
         endpoint = self.config.aws_iot_endpoint.value
         if not endpoint:
             log.error("No aws_iot_endpoint configured; cannot publish downlink")
             return
 
-        certs = self._ensure_cert_files()
-        if certs is None:
+        ctx = self._ensure_ssl_context()
+        if ctx is None:
             return
 
-        topic = f"aws/things/{thing_name}/{channel}"
+        topic = f"aws/things/{request.thing_name}/{request.channel}"
         url = f"https://{endpoint}:8443/topics/{topic}?qos=1"
 
+        body = request.payload
         if isinstance(body, (dict, list)):
             payload_bytes = json.dumps(body).encode()
             content_type = "application/json"
@@ -171,14 +171,13 @@ class AwsIotIntegration(Application):
             content_type = "text/plain"
 
         try:
-            resp = requests.post(
-                url,
-                data=payload_bytes,
-                headers={"Content-Type": content_type},
-                cert=certs,
-                timeout=10,
-            )
-        except requests.RequestException as e:
+            async with httpx.AsyncClient(verify=ctx, timeout=10) as client:
+                resp = await client.post(
+                    url,
+                    content=payload_bytes,
+                    headers={"Content-Type": content_type},
+                )
+        except httpx.HTTPError as e:
             log.error("Downlink publish to %s failed: %s", topic, e)
             return
 

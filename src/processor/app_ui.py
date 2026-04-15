@@ -6,7 +6,7 @@ from .app_tags import AwsIotTags
 
 
 class AwsIotUI(ui.UI, hidden="$config.app().hide_ui"):
-    last_uplink_at = ui.TextVariable(
+    last_uplink_at = ui.Timestamp(
         "Last Uplink",
         value=AwsIotTags.last_uplink_at,
     )
@@ -24,5 +24,5 @@ class AwsIotUI(ui.UI, hidden="$config.app().hide_ui"):
 def export():
     AwsIotUI(None, None, None).export(
         Path(__file__).parents[2] / "doover_config.json",
-        "aws_iot_processor",
+        "aws_iot_core_processor",
     )

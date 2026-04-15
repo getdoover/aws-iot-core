@@ -5,8 +5,8 @@ description = "Doover integration for devices connected via AWS IoT Core"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "httpx>=0.28.1",
     "pydoover==1.0.0a7",
-    "requests>=2.32.0",
 ]
 
 [project.scripts]

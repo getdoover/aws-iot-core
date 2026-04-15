@@ -8,15 +8,15 @@ class AwsIotProcessorConfig(config.Schema):
     # Subscribed channels are typically written by the integration when it
     # forwards an uplink. Defaults cover the 1.0-style channel names used by
     # existing firmware (device_uplinks). Users can extend per-deployment.
-    subscription = ManySubscriptionConfig(default=["device_uplinks"], hidden=True)
-    position = config.ApplicationPosition()
+    subscription = ManySubscriptionConfig(default=["on_aws_iot_event"], hidden=True)
+    position = config.ApplicationPosition(default=200)
 
     # Thing name — populated from the device's dv_serial_number (set by the
     # control-plane hook to the AWS IoT Thing name).
     serial_number = SerialNumberConfig(
         description="AWS IoT Thing name (e.g. org-123-456)",
         hidden=True,
-        default="",
+        default=None,
     )
 
     hide_ui = config.Boolean(
@@ -29,5 +29,5 @@ class AwsIotProcessorConfig(config.Schema):
 def export():
     AwsIotProcessorConfig.export(
         Path(__file__).parents[2] / "doover_config.json",
-        "aws_iot_processor",
+        "aws_iot_core_processor",
     )
