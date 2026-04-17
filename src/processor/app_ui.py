@@ -5,7 +5,7 @@ from pydoover import ui
 from .app_tags import AwsIotTags
 
 
-class AwsIotUI(ui.UI, hidden="$config.app().hide_ui"):
+class AwsIotUI(ui.UI, hidden="$config.app().hide_default_ui"):
     last_uplink_at = ui.Timestamp(
         "Last Uplink",
         value=AwsIotTags.last_uplink_at,

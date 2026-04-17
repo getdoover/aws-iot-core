@@ -476,9 +476,9 @@
                         "description": "The name of the channel to subscribe to"
                     }
                 },
-                "dv-app-position": {
+                "dv_app_position": {
                     "title": "Position",
-                    "x-name": "dv-app-position",
+                    "x-name": "dv_app_position",
                     "x-hidden": true,
                     "type": [
                         "integer",
@@ -529,8 +529,8 @@
         "lambda_arn": null,
         "ui_schema": {
             "displayString": "$config.app().APP_DISPLAY_NAME",
-            "hidden": "$config.app().hide_ui:boolean:false",
-            "position": "$config.app().position:number:50",
+            "hidden": "$config.app().hide_default_ui:boolean:false",
+            "position": "$config.app().dv_app_position:number:100",
             "icon": null,
             "colour": null,
             "defaultOpen": false,
