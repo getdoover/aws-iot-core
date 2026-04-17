@@ -21,6 +21,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/integration", "src/processor"]
 
+[tool.uv.sources]
+pydoover = { git = "https://github.com/getdoover/pydoover" }
+
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",

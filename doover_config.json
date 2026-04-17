@@ -330,6 +330,19 @@
                     ],
                     "x-collapsible": true,
                     "x-defaultCollapsed": false
+                },
+                "dv_egress_channel": {
+                    "title": "Egress Channel",
+                    "x-name": "dv_egress_channel",
+                    "x-hidden": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Channel to subscribe on every device configured.",
+                    "default": "aws_iot_downlink_request",
+                    "x-position": 11
                 }
             },
             "additionalElements": true,

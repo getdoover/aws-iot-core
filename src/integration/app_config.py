@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pydoover import config
-from pydoover.processor import IngestionEndpointConfig, ExtendedPermissionsConfig
+from pydoover.processor import IngestionEndpointConfig, ExtendedPermissionsConfig, EgressChannelConfig
 
 
 class AwsIotIntegrationConfig(config.Schema):
@@ -84,6 +84,7 @@ class AwsIotIntegrationConfig(config.Schema):
     )
 
     integration = IngestionEndpointConfig()
+    egress_channel = EgressChannelConfig(default="aws_iot_downlink_request")
 
 
 def export():
