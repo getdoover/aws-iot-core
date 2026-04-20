@@ -120,7 +120,7 @@ class AwsIotIntegration(Application):
         if mapping is None:
             return None
         for thing_name, mapped_agent_id in mapping.items():
-            if mapped_agent_id == agent_id:
+            if mapped_agent_id == str(agent_id):
                 return thing_name
         return None
 
