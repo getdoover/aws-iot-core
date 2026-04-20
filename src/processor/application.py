@@ -43,21 +43,14 @@ class AwsIotProcessor(Application):
     async def send_downlink(self, channel: str, payload) -> None:
         """
         Helper for subclasses / downstream apps: request a downlink publish
-        via the integration. Fire-and-forget — the integration's
-        on_message_create handler picks this up and publishes to MQTT.
+        via the integration. Fire-and-forget — the integration has an egress
+        subscription on this channel and recovers the thing_name from the
+        source agent_id, so the payload doesn't need to carry it.
         """
-        thing_name = self.config.serial_number.value
-        if not thing_name:
-            log.error("No serial_number configured — cannot send downlink")
-            return
-
         await self.api.create_message(
             DOWNLINK_REQUEST_CHANNEL,
             {
-                "thing_name": thing_name,
                 "channel": channel,
                 "payload": payload,
             },
-            # agent_id omitted — defaults to the integration agent when the
-            # processor's permissions cover it. Callers can override if needed.
         )

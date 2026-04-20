@@ -26,14 +26,6 @@ class DownlinkRequest:
     channel: str
     payload: Any
 
-    @classmethod
-    def from_message(cls, data: dict) -> "DownlinkRequest":
-        return cls(
-            thing_name=data["thing_name"],
-            channel=data["channel"],
-            payload=data.get("payload"),
-        )
-
 
 class AwsIotIntegration(Application):
     config: AwsIotIntegrationConfig
@@ -88,20 +80,53 @@ class AwsIotIntegration(Application):
         """
         Handle a downlink-publish request.
 
-        Processors request a downlink by creating a message on the
-        `aws_iot_downlink_request` channel of the integration's own agent,
-        with payload { "thing_name": ..., "channel": ..., "payload": ... }.
+        Devices publish to the `aws_iot_downlink_request` channel on their
+        own agent; the integration is subscribed to that channel via its
+        egress config. If the payload carries `thing_name` explicitly, use
+        it; otherwise recover it from the source agent via the
+        `serial_number_lookup` tag (the inverse of the uplink path's agent
+        lookup).
         """
         if event.channel.name != DOWNLINK_REQUEST_CHANNEL:
             return
 
-        await self._publish_downlink(DownlinkRequest.from_message(event.message.data))
+        data = event.message.data
+        thing_name = data.get("thing_name")
+        if not thing_name:
+            thing_name = self._lookup_thing_name(event.channel.agent_id)
+        if not thing_name:
+            log.warning(
+                "Downlink from agent %s has no thing_name mapping — dropping",
+                event.channel.agent_id,
+            )
+            return
+
+        await self._publish_downlink(DownlinkRequest(
+            thing_name=thing_name,
+            channel=data["channel"],
+            payload=data.get("payload"),
+        ))
 
     # -- Helpers -------------------------------------------------------------
 
     def _lookup_agent(self, thing_name: str) -> int | None:
+        mapping = self._serial_number_lookup()
+        if mapping is None:
+            return None
+        return mapping.get(thing_name)
+
+    def _lookup_thing_name(self, agent_id: int) -> str | None:
+        mapping = self._serial_number_lookup()
+        if mapping is None:
+            return None
+        for thing_name, mapped_agent_id in mapping.items():
+            if mapped_agent_id == agent_id:
+                return thing_name
+        return None
+
+    def _serial_number_lookup(self) -> dict | None:
         try:
-            mapping = self.tag_manager.get_tag(
+            return self.tag_manager.get_tag(
                 "serial_number_lookup",
                 app_key="aws_iot_core_processor_1",
                 raise_key_error=True,
@@ -109,7 +134,6 @@ class AwsIotIntegration(Application):
         except KeyError:
             log.debug("serial_number_lookup tag missing; processor not yet installed?")
             return None
-        return mapping.get(thing_name)
 
     def _ensure_ssl_context(self) -> ssl.SSLContext | None:
         """Build an SSL context with the publish cert loaded from memory.
